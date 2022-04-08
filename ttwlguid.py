@@ -28,6 +28,7 @@
 # "gvas-converter" project: https://github.com/13xforever/gvas-converter
 
 import struct
+import uuid
 
 class BL3Save(object):
     """
@@ -201,9 +202,27 @@ class BL3Save(object):
     def _write_guid(self, df, value):
         df.write(value)
 
+def replace_value_in_bytearray(b,v,r):
+    assert(len(v) == len(r))
+    newdata = b.copy()
+    found = False
+    for i in range(len(newdata)):
+        if newdata[i:i+len(v)] == v:
+            newdata[i:i+len(v)] = r
+            found = True
+            break
+    if not found:
+        raise Exception(f"Did not find the string {v}")
+    return newdata
+
 if __name__ == "__main__":
-    filename = "wonderlands.sav"
+    # filename = "wonderlands.sav"
+    filename = "5.sav"
+    import sys
+    if len(sys.argv)>1:
+        filename = sys.argv[1]
     # filename = "blister-amara.bl3.sav"
+    print(f"Loading {filename}")
     bl3save = BL3Save(filename, debug=True)
     print(bl3save.sg_version)
     print(bl3save.pkg_version)
@@ -218,19 +237,57 @@ if __name__ == "__main__":
         print(f'guid:{guid} entry:{entry}')
     print(bl3save.sg_type)
     print(len(bl3save.data))
+    with open("bl3save.proto",'wb') as fd:
+        fd.write(bl3save.data)
     # print(bl3save.data)
     # from google.protobuf.json_format import MessageToJson
     # print( MessageToJson(bl3save.data) )
     # print( MessageToJson(bl3save.data[32:]) )
     import blackboxprotobuf
-    message,typedef = blackboxprotobuf.protobuf_to_json(bl3save.data)
+    #message,typedef = blackboxprotobuf.protobuf_to_json(bl3save.data)
     #print(typedef)
     #print(message)
     print("decoding")
     message,typedef = blackboxprotobuf.decode_message(bl3save.data)
-    #message[1] = 10
-    #message[2] = 699999999999999999
-    #message[3] = 19999
-    print("encoding")
-    data = blackboxprotobuf.encode_message(message,typedef)
-    print(data)
+    for i in ["1","2","3","23","43"]:
+        print(f'{i}: {message[str(i)]}')
+    GUID = message["23"] # protoc --decode_raw
+    NEWGUID = bytearray(uuid.uuid4().hex.upper(),'ascii')
+    print(f'{GUID} -> {NEWGUID}')
+    NAME = None
+    NAME = 'StabbyFunnt'
+    # having problems finding the name
+    # Assign the prefix of the GUID there
+    # NAME = message["43"] # protoc --decode_raw
+    #print(f"GUID: {GUID} NAME {NAME}")
+    # NEWNAME = NAME.copy()    
+    #if len(NEWNAME) > 4:
+    #    NEWNAME[-4:] = NEWGUID[0:4]
+    #for k in message.keys():
+    #    print(f'{k} {message[k]}')
+    # now search for it and change it.
+    newdata = replace_value_in_bytearray(bl3save.data, GUID,NEWGUID)
+    if NAME is not None:
+        if type(NAME) is str:            
+            NAME = bytearray(NAME,'ascii')
+        assert(type(NAME) is bytearray)
+        newname = NAME.copy()    
+        if len(newname) > 4:
+            newname[-4:] = NEWGUID[0:4]
+        newdata = replace_value_in_bytearray(newdata, NAME,newname)
+        
+
+    bl3save.save_to(filename+".old_guid.sav")
+    bl3save.data = newdata
+    bl3save.save_to(filename+".new_guid.sav")
+    #         
+    # 
+    # print("Modifying")
+    # message["1"] = 10
+    # message["2"] = 699999999999999999
+    # message["3"] = 19999
+    # print("encoding")
+    # data = blackboxprotobuf.encode_message(message,typedef)
+    # # print(data)
+    # with open("bl3save.proto.modify",'wb') as fd:
+    #     fd.write(data)
