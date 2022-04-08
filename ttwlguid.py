@@ -218,9 +218,12 @@ def replace_value_in_bytearray(b,v,r):
 if __name__ == "__main__":
     # filename = "wonderlands.sav"
     filename = "5.sav"
+    NAME=None
     import sys
     if len(sys.argv)>1:
         filename = sys.argv[1]
+    if len(sys.argv) == 3:
+        NAME = sys.argv[1]
     # filename = "blister-amara.bl3.sav"
     print(f"Loading {filename}")
     bl3save = BL3Save(filename, debug=True)
@@ -255,17 +258,6 @@ if __name__ == "__main__":
     NEWGUID = bytearray(uuid.uuid4().hex.upper(),'ascii')
     print(f'{GUID} -> {NEWGUID}')
     NAME = None
-    NAME = 'StabbyFunnt'
-    # having problems finding the name
-    # Assign the prefix of the GUID there
-    # NAME = message["43"] # protoc --decode_raw
-    #print(f"GUID: {GUID} NAME {NAME}")
-    # NEWNAME = NAME.copy()    
-    #if len(NEWNAME) > 4:
-    #    NEWNAME[-4:] = NEWGUID[0:4]
-    #for k in message.keys():
-    #    print(f'{k} {message[k]}')
-    # now search for it and change it.
     newdata = replace_value_in_bytearray(bl3save.data, GUID,NEWGUID)
     if NAME is not None:
         if type(NAME) is str:            
@@ -280,6 +272,7 @@ if __name__ == "__main__":
     bl3save.save_to(filename+".old_guid.sav")
     bl3save.data = newdata
     bl3save.save_to(filename+".new_guid.sav")
+    # This did not work
     #         
     # 
     # print("Modifying")
