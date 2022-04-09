@@ -29,6 +29,8 @@
 
 import struct
 import uuid
+import argparse
+import blackboxprotobuf
 
 class BL3Save(object):
     """
@@ -215,18 +217,20 @@ def replace_value_in_bytearray(b,v,r):
         raise Exception(f"Did not find the string {v}")
     return newdata
 
-if __name__ == "__main__":
-    # filename = "wonderlands.sav"
-    filename = "5.sav"
-    NAME=None
-    import sys
-    if len(sys.argv)>1:
-        filename = sys.argv[1]
-    if len(sys.argv) == 3:
-        NAME = sys.argv[1]
-    # filename = "blister-amara.bl3.sav"
-    print(f"Loading {filename}")
-    bl3save = BL3Save(filename, debug=True)
+def parse_args():
+    parser = argparse.ArgumentParser(description=f'Tiny Tina\'s Wonderlands Savefile GUID Changer and Renamer')
+    parser.add_argument('-i',type=str,help='Savefile as input')
+    parser.add_argument('-o',type=str,default=None,help='Output Save File')
+    parser.add_argument('--name',type=str,default=None,help='The current name of your character to replace')
+    parser.add_argument('--rename',type=str,default=None,help='The name to change your character to -- without this option the character will be renamed based on original name and GUID')
+    parser.add_argument('--debug',action='store_true',default=False,help='Enable debugging output')
+    return parser.parse_args()
+
+
+
+
+
+def debug_print_bl3save(bl3save):
     print(bl3save.sg_version)
     print(bl3save.pkg_version)
     print(bl3save.engine_major)
@@ -240,16 +244,20 @@ if __name__ == "__main__":
         print(f'guid:{guid} entry:{entry}')
     print(bl3save.sg_type)
     print(len(bl3save.data))
+
+if __name__ == "__main__":
+    args = parse_args()
+    filename = args.i
+    outfile = args.o
+    debug = args.debug
+    NAME= args.name
+    NEWNAME= args.rename
+    print(f"Loading {filename}")
+    bl3save = BL3Save(filename, debug=debug)
+    if debug:
+        debug_print_bl3save(bl3save)
     with open("bl3save.proto",'wb') as fd:
         fd.write(bl3save.data)
-    # print(bl3save.data)
-    # from google.protobuf.json_format import MessageToJson
-    # print( MessageToJson(bl3save.data) )
-    # print( MessageToJson(bl3save.data[32:]) )
-    import blackboxprotobuf
-    #message,typedef = blackboxprotobuf.protobuf_to_json(bl3save.data)
-    #print(typedef)
-    #print(message)
     print("decoding")
     message,typedef = blackboxprotobuf.decode_message(bl3save.data)
     for i in ["1","2","3","23","43"]:
@@ -257,30 +265,27 @@ if __name__ == "__main__":
     GUID = message["23"] # protoc --decode_raw
     NEWGUID = bytearray(uuid.uuid4().hex.upper(),'ascii')
     print(f'{GUID} -> {NEWGUID}')
-    NAME = None
     newdata = replace_value_in_bytearray(bl3save.data, GUID,NEWGUID)
+
+    # replace the name
     if NAME is not None:
         if type(NAME) is str:            
             NAME = bytearray(NAME,'ascii')
         assert(type(NAME) is bytearray)
-        newname = NAME.copy()    
+        newname = NAME.copy()
         if len(newname) > 4:
             newname[-4:] = NEWGUID[0:4]
+        if NEWNAME is not None:
+            n = min(len(newname),len(NEWNAME))
+            newname[0:n] = bytearray(NEWNAME,'ascii')[0:n]
+        print(f"Replacing Name {NAME} with {newname}")
         newdata = replace_value_in_bytearray(newdata, NAME,newname)
-        
 
+    # make sure the same data is saved the same.
     bl3save.save_to(filename+".old_guid.sav")
+    # update the protobuf data
     bl3save.data = newdata
-    bl3save.save_to(filename+".new_guid.sav")
-    # This did not work
-    #         
-    # 
-    # print("Modifying")
-    # message["1"] = 10
-    # message["2"] = 699999999999999999
-    # message["3"] = 19999
-    # print("encoding")
-    # data = blackboxprotobuf.encode_message(message,typedef)
-    # # print(data)
-    # with open("bl3save.proto.modify",'wb') as fd:
-    #     fd.write(data)
+    if outfile is None:
+        outfile = filename+".new_guid.sav"
+    print(f"Writing {outfile}")
+    bl3save.save_to( outfile )
