@@ -36,3 +36,7 @@ bytearray(b'0744E50B40DFEF680FE7348F322C4934') -> bytearray(b'E85138E2EEEE40A790
 Replacing Name bytearray(b'StabbyFunnt') with bytearray(b'CoolFunnt51')
 Writing CoolFunnt.sav
 ```
+
+# Dependencies
+
+* blackboxprotobuf `pip3 install --user blackboxprotobuf`
